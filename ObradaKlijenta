@@ -1,0 +1,62 @@
+
+package server;
+
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.Socket;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import op.Operacija;
+import transfer.KorisnickiZahtev;
+import transfer.ServerskiOdgovor;
+
+public class ObradaKlijenta extends Thread{
+    Socket s;
+
+    public ObradaKlijenta(Socket s) {
+        this.s = s;
+    }
+
+    @Override
+    public void run() {
+        
+        while (true) {            
+            KorisnickiZahtev kz = primiZahtev();
+            ServerskiOdgovor so = new ServerskiOdgovor();
+            
+            switch(Operacija.POVEZI_SE){
+            
+            }
+            
+           posaljiOdg(so);
+        }
+    }
+
+    private KorisnickiZahtev primiZahtev() {
+        KorisnickiZahtev kz = new KorisnickiZahtev();
+        
+        try {
+            ObjectInputStream ois = new ObjectInputStream(s.getInputStream());
+             kz = (KorisnickiZahtev) ois.readObject();
+             
+        } catch (IOException ex) {
+            Logger.getLogger(ObradaKlijenta.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (ClassNotFoundException ex) {
+            Logger.getLogger(ObradaKlijenta.class.getName()).log(Level.SEVERE, null, ex);
+        }
+       return kz;
+    }
+
+    private void posaljiOdg(ServerskiOdgovor so) {
+
+        try {
+            ObjectOutputStream oos = new ObjectOutputStream(s.getOutputStream());
+            oos.writeObject(so);
+            
+        } catch (IOException ex) {
+            Logger.getLogger(ObradaKlijenta.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        
+    }
+}
