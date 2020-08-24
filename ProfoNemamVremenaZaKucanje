@@ -1,0 +1,162 @@
+import domain.Poruka;
+import java.util.Date;
+import java.util.Scanner;
+import thread.NitServer;
+
+public class Main {
+    public static void main(String[] args) {
+        NitServer nitServer=new NitServer();
+        nitServer.start();
+        Scanner scanner=new Scanner(System.in);
+        System.out.println("[FON] chat server");
+        while(true){
+            try {
+                System.out.print("Poruka za aktivne korisnike: ");
+                String text=scanner.nextLine();
+                Poruka poruka=new Poruka(0, "server", "", text, new Date());
+                nitServer.dodajPoruke(poruka);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        }
+    }
+            
+}
+
+/******************************************************
+import domain.Poruka;
+import java.io.IOException;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.util.LinkedList;
+import java.util.List;
+
+public class NitServer extends Thread{
+    private ServerSocket serverSocket;
+    private List<Poruka> poruke;
+    private List<NitKlijent> clients;
+
+    public NitServer() {
+        try{
+            serverSocket=new ServerSocket(10000);
+            poruke=new LinkedList<>();
+            clients=new LinkedList<>();
+        }catch(Exception ex){
+            ex.printStackTrace();
+        }
+    }
+
+    @Override
+    public void run() {
+        while(!isInterrupted()){
+            try {
+                    Socket socket=serverSocket.accept();
+                    NitKlijent nk=new NitKlijent(socket, this);
+                    clients.add(nk);
+                    nk.start();
+                } catch (IOException ex) {
+                    ex.printStackTrace();
+            }
+        }
+    }
+    
+    
+    public void dodajPoruke(Poruka poruka) throws Exception{
+        boolean postoji=false;
+        if(poruka.getPosiljalac().equals("server"))
+            poruke.add(poruka);
+        else{
+            for(NitKlijent nk : clients)
+                if(nk.getImeKorsinika().toLowerCase().equals(poruka.getPrijemnik()))
+                    postoji=true;
+            if(postoji)
+                poruke.add(poruka);
+            else
+                throw new Exception("Ne postoji korinsik sa tim korisnickim imenom");
+        }
+    }
+    
+    public boolean posotojiKorisnik(String ime){
+        for(NitKlijent nk:clients)
+            if(nk.getImeKorsinika().toLowerCase().equals(ime.toLowerCase()) || ime.toLowerCase().equals("server"))
+                return true;
+        return false;
+    }
+    
+    public List<Poruka> vratiSvePorukeZaKorisnika(String ime){
+        List<Poruka> list=new LinkedList<>();
+        for(Poruka p:poruke)
+            if(p.getPrijemnik().toLowerCase().equals(ime.toLowerCase()) || p.getPosiljalac().equals("server"))
+                list.add(p);
+        return list;
+    }
+    
+    
+}
+
+/************************************************
+import domain.Operation;
+import domain.Poruka;
+import domain.Request;
+import domain.Response;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.Socket;
+
+public class NitKlijent extends Thread{
+    private Socket socket;
+    private String imeKorisnika;
+    private NitServer nitServer;
+    
+    public NitKlijent(Socket socket, NitServer nitserver) {
+        imeKorisnika="";
+        this.socket = socket;
+        this.nitServer=nitserver;
+        
+    }
+
+    @Override
+    public void run() {
+        while(!isInterrupted()){
+            try{
+                ObjectInputStream in=new ObjectInputStream(socket.getInputStream());
+                Request request=(Request)in.readObject();
+                Response response=obradiZahtev(request);
+                ObjectOutputStream out=new ObjectOutputStream(socket.getOutputStream());
+                out.writeObject(response);
+            }catch(Exception ex){
+               // ex.printStackTrace();
+            }
+        }
+    }
+
+    private Response obradiZahtev(Request request) {
+        Response res=new Response(null);
+        switch(request.getOperation()){
+            case Operation.LOGIN:
+                String ime=(String)request.getData();
+                if(nitServer.posotojiKorisnik(ime))
+                    res.setData(new Exception("Ne postoji korinsik sa tim korisnickim imenom"));
+                imeKorisnika=ime;
+                return res;
+            case Operation.RECIEVE:
+                res.setData(nitServer.vratiSvePorukeZaKorisnika(imeKorisnika));
+                return res;
+            case Operation.SEND:
+                try {
+                    nitServer.dodajPoruke((Poruka)request.getData());
+                } catch (Exception ex) {
+                    res.setData(ex);
+                }
+            return res;
+            default:
+                return null;
+        }
+    }
+
+    public String getImeKorsinika() {
+        return imeKorisnika;
+    }
+    
+    
+}
